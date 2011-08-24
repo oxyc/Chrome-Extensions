@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+    <head>
+        <title></title>
+    </head>
+    <body>
+        <script>
+            !function() {
+                // Settings variable later passed to the content script
+                var settings = {
+                        scope :         'https://spreadsheets.google.com/feeds/list/',
+                        key :           localStorage['nordea.key'],
+                        worksheet_id :  localStorage['nordea.worksheet_id'],
+                        client_id :     localStorage['nordea.client_id'],
+                        client_secret : localStorage['nordea.client_secret'],
+                        app_name :      'Nordea.fi transaction history',
+                        url_suffix :    '/private/full',
+                        url :           null,   // filled in once authenticated
+                        auth_header :   null    // filled in once authenticated
+                    },
+                    
+                    scripts_executed = 0;
+                function addScript( url, callback ) {
+                    var script = document.createElement('script');
+
+                    script.src = url;
+                    callback && ( script.onload = callback );
+                    document.head.appendChild( script );
+                }
+
+                chrome.extension.onRequest.addListener(function( request, sender, sendResponse ) {
+                    switch( request.action ) {
+                        case 'signin':
+                            if ( !( settings.key
+                                    && settings.worksheet_id
+                                    && settings.client_id
+                                    && settings.client_secret ) ) {
+                                alert('Extension settings missing. Exiting.');
+                                
+                                return;
+                            }
+
+                            addScript('chrome_ex_oauth.js', signIn);
+                            addScript('chrome_ex_oauthsimple.js', signIn)
+
+                            break;
+                    }
+
+                    // Authorize with OAuth and respond back with the settings variable
+                    function signIn() {
+
+                        // Make sure both scripts are executed before signing in
+                        if ( ++scripts_executed < 2 ) {
+                            return;
+                        }
+
+                        var oauth = ChromeExOAuth.initBackgroundPage({
+                            'request_url':      'https://www.google.com/accounts/OAuthGetRequestToken',
+                            'authorize_url':    'https://www.google.com/accounts/OAuthAuthorizeToken',
+                            'access_url':       'https://www.google.com/accounts/OAuthGetAccessToken',
+                            'consumer_key':     settings.client_id,
+                            'consumer_secret':  settings.client_secret,
+                            'scope':            settings.scope,
+                            'app_name':         settings.app_name
+                        });
+
+                        oauth.authorize(function() {
+                            settings.url = settings.scope
+                                    + settings.key
+                                    + '/' + settings.worksheet_id
+                                    + settings.url_suffix;
+                            settings.auth_header = oauth.getAuthorizationHeader( settings.url, "POST" );
+
+                            sendResponse({
+                                success : true,
+                                settings : settings
+                            });
+                        });
+                    }
+                });
+            }();
+        </script>
+    </body>
+</html>
