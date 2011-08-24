@@ -23,6 +23,12 @@ Spreadsheet document.
 
     If you've *already made your first commit* all you need to do is select the first
     option, *"Allt sedan senaste överföringen"*
+9.  Wait for the alert notifying you that the transfer was complete before leaving the page.
+10. You can enable filtering but have to do so every time new data has been added
+    > Select A1 » Tools » Filter
+
+    To calculate a total sum you just select the prices in question and look in the bottom
+    right corner of the page.
 
 [google]: http://www.google.com
 [Google Spreadsheet]: https://docs.google.com/spreadsheet/ccc?key=0AoZjYmMuEKWrdENWb2U5dkFVcWVtQmc1UHd1X3ZGQUE&hl=en_US#gid=0
