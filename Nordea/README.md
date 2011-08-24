@@ -5,7 +5,7 @@ Spreadsheet document.
 
 ## Setting up
 
-1.  Install the extension [here][google] and sign in to Google.
+1.  Install the extension [here][crx] and sign in to Google.
 2.  Make a copy of this template [Google Spreadsheet][]
     and store it in your document list privately.
 3.  Take note of the *key* parameter in the URL field of the document,
@@ -33,7 +33,7 @@ Spreadsheet document.
     To calculate a total sum you just select the prices in question and look in the bottom
     right corner of the page.
 
-[google]: http://www.google.com
+[crx]: https://github.com/oxyc/Chrome-Extensions/raw/master/Nordea/Nordea.crx
 [Google Spreadsheet]: https://docs.google.com/spreadsheet/ccc?key=0AoZjYmMuEKWrdENWb2U5dkFVcWVtQmc1UHd1X3ZGQUE&hl=en_US#gid=0
 [API Console]: https://code.google.com/apis/console/
 
