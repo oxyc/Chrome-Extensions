@@ -16,7 +16,9 @@ Spreadsheet document.
 6.  Sign in to Nordea.fi with Swedish as your language (unless you change the
     spreadsheet template).
 7.  Navigate
+
     > Konton » Kontotransaktioner och kontouppgifter » Transaktionsförteckning
+
     and select your bank account.
 8.  If this is your *first time* using the extension, select a time range
     beginning at the first date of searchable data.
@@ -25,6 +27,7 @@ Spreadsheet document.
     option, *"Allt sedan senaste överföringen"*
 9.  Wait for the alert notifying you that the transfer was complete before leaving the page.
 10. You can enable filtering but have to do so every time new data has been added
+    
     > Select A1 » Tools » Filter
 
     To calculate a total sum you just select the prices in question and look in the bottom
