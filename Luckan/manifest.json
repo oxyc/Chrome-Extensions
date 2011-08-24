@@ -1,0 +1,15 @@
+{
+    "name": "Luckan",
+    "version": "1.0",
+    "description": "Removes autocomplete=off from my Luckans login page.",
+    "permissions": [
+        "https://luckan.arcada.fi/"
+    ],
+    "content_scripts": [
+        {
+            "matches": ["https://luckan.arcada.fi/"],
+            "js" : ["contentscript.js"],
+            "run_at" : "document_start"
+        }
+  ]
+}
