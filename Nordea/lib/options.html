@@ -33,7 +33,7 @@
     function restoreOptions() {
         //localStorage[prefix . ]
         Array.prototype.slice.call( document.getElementById("form").elements ).forEach(function( val, idx ) {
-            if ( localStorage[ prefix + '.'+ val.name ] !== "undefined") {
+            if ( localStorage[ prefix + '.'+ val.name ] !== undefined) {
                 val.value = localStorage[ prefix + '.'+ val.name ];
             }
         });
@@ -53,7 +53,9 @@
         }, 1500);
     }
 
-    document.getElementById("error").innerHTML = "<p>"+ localStorage[ prefix + '.errors'].replace(/~/, '</p><p>') + "</p>";
+    // Need to establish a connection between contentscript and
+    // background to be able to push data into localStorage
+    //document.getElementById("error").innerHTML = "<p>"+ ( localStorage[ prefix + '.errors'] || "").replace(/~/, '</p><p>') + "</p>";
 
     document.getElementById("save").addEventListener("click", saveOptions, true);
     restoreOptions();

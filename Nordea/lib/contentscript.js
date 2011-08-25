@@ -24,16 +24,20 @@
 !function( global, document ) {
     var settings,       // settings variable stored in background.html
         columns,        // column titles for table
-        errors = 0,
-        requests = 0,
-        current_request = 0;
+        errors          = 0,
+        requests_total  = 0,
+        requests_done   = 0,
+        current_request = null,
+        delay           = 50,
+        retry_delay     = 1000,
+        info_box        = null;
 
     // Set up all libraries and initialize the script
     function init() {
-        chrome.extension.sendRequest({ action : "signin" }, function( response ) {
+        chrome.extension.sendRequest({action : "signin"}, function( response ) {
             if ( response.success ) {
                 settings = response.settings;
-
+                info_box = new Box();
                 fetchTxt();
             } else {
                 global.console.log('Authentication failed');
@@ -48,37 +52,72 @@
         ajax({
             method : "GET",
             url : link.href,
-            callback : parseTxt
+            callback : pushData
         });
     }
 
     // Parse the txt file and issue push requests for each row individually
-    function parseTxt( response ) {
-        if ( !response ) {
+    function pushData( transaction_data ) {
+        if ( !transaction_data ) {
             throw new Error("Was not able to retrieve txt file.");
         }
+
+        var tries = 0;
         
         // remove irrelevant lines
-        response = response.split("\n").slice(2, -1);
+        transaction_data = transaction_data.split("\n").slice(2, -1);
 
         // store and remove column names
-        columns = response.splice(0, 2)[0].replace(/[^\w\t]/g, '').toLowerCase().split("\t");
+        columns = transaction_data.splice(0, 2)[0].replace(/[^\w\t]/g, '').toLowerCase().split("\t");
 
-        requests = response.length / 2;
+        requests_total = transaction_data.length / 2;
+        
+        !function loop( request ) {
+        
+            global.setTimeout(function() {
+                if ( current_request = request ) {
+                    googlePOST( createEntry( current_request.split("\t") ), function( response, data ) {
+                        switch ( data.target.statusText ) {
+                            case "Created":
+                                tries = 0;
+                                info_box.updateStatus( ++requests_done +'/' + requests_total );
+                                loop( transaction_data.splice(0,2)[0] );
+                                break;
 
-        // every other line is empty so skip them
-        for ( var i = 0; i < response.length; i = i + 2 ) {
-            !function( i ) {
-                global.setTimeout(function() {
-                    pushData( createEntry( response[ i ].split("\t") ) );
-                }, 100);
-            }( i );
-        }
+                            case "Forbidden":
+                            case "Bad Request":
+                                if ( ++tries < 4 ) {
+                                    global.setTimeout(function() {
+                                        loop( current_request );
+                                    }, retry_delay );
+
+                                } else {
+                                    info_box.updateStatus( ++requests_done +'/' + requests_total );
+                                    info_box.addError( current_request );
+                                    
+                                    global.console.log('Error pushing data %o with %o',
+                                        data,
+                                        createEntry( current_request.split("\t"))
+                                    );
+
+                                    errors++;
+                                    tries = 0;
+                                    
+                                    loop( transaction_data.splice(0,2)[0] );
+                                }
+                                break;
+                        }
+                    });
+                } else {
+                    info_box.updateStatus('Nordea.fi transaction export done! ' + ( requests_total - errors ) + '/' + requests_total + ' successful.');
+                }
+            }, delay );
+
+        }( transaction_data.splice(0,2)[0] ); // remove every other line as it's empty
     }
 
     // Make the POST request to push into Google Spreadsheets
-    function pushData( body, tries ) {
-        tries = arguments.length > 1 ? tries : 0;
+    function googlePOST( body, callback ) {
         ajax({
             method :    "POST",
             url :       settings.url,
@@ -88,45 +127,31 @@
                 [ 'Content-Type',   'application/atom+xml' ],
                 [ 'Authorization',  settings.auth_header ]
             ],
-            callback : function( response, data ) {
-                if ( data.target.status !== 200 ) {
-
-                    if ( tries < 3 ) {
-                        global.setTimeout(function() {
-                            pushData( body, tries++ );
-                        }, 1000);
-                        
-                    } else {
-                        alert("An error occurred, check the options page for a list of content not pushed to the document.");
-                        global.console.log('Error pushing data %o', data );
-                        global.localStorage['nordea.errors'] = body + "~"+ ( global.localStorage['nordea.errors'] || "" );
-                        current_request++;
-                    }
-                } else {
-                    current_request++;
-                }
-                
-                if ( current_request >= requests ) {
-                    global.alert('Nordea.fi transaction export done!');
-                }
-            }
+            callback : callback
         });
     }
-
+    
     // Return a xml string formated according to Google Spreadsheets scheme
     function createEntry( values ) {
-        var cells = "";
+        var cells = "", col;
 
         values.forEach(function( value, idx ) {
-            cells += "<gsx:" + columns[ idx ] + ">"
-                    + ( value || "" ).trim()
-                    + "</gsx:" + columns[ idx ] + ">";
+            if ( col = columns[ idx ] ) {
+                cells += "<gsx:" + col + ">"
+                        + ( htmlEntities(value) || "" ).trim()
+                        + "</gsx:" + col + ">";
+            }
         });
 
         return '<entry xmlns="http://www.w3.org/2005/Atom"'
                 + ' xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended">'
                 + cells
                 + '</entry>';
+    }
+
+    // Sanitize text
+    function htmlEntities( str ) {
+        return String( str ).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     // Generic AJAX function
@@ -151,6 +176,29 @@
         });
         xhr.send( options.send );
     }
+
+    var Box = function() {
+        var box = document.createElement('div'),
+            status = box.cloneNode( false ),
+            errors = document.createElement('pre');
+
+        box.setAttribute('style', 'position:fixed;top:50px;right:0;padding:1em;display:inline-block;background:#fff;border:solid 1px #ccc; max-height:500px;max-width:500px;overflow:auto;');
+        box.id = "nordea-info-box";
+        status.id = "nordea-info-status";
+        errors.id = "nordea-info-errors";
+        box.appendChild( document.createTextNode("Nordea Transaction History") );
+        this.status = box.appendChild( status );
+        this.errors = box.appendChild( errors );
+        
+        document.body.appendChild( box );
+    }
+    
+    Box.prototype.updateStatus = function ( string ) {
+        this.status.innerHTML = string;
+    };
+    Box.prototype.addError = function ( string ) {
+        this.errors.innerHTML += string + "\n";
+    };
 
     // Initialize the script
     document.getElementById("downloadLink") && init();
