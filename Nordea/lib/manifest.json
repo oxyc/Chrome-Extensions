@@ -8,11 +8,15 @@
         "tabs",
         "https://spreadsheets.google.com/",
         "https://solo1.nordea.fi/",
-        "https://www.google.com/"
+        "https://www.google.com/",
+        "https://www.op.fi/"
     ],
     "content_scripts": [
         {
-            "matches": ["https://solo1.nordea.fi/nsp/engine"],
+            "matches": [
+                "https://solo1.nordea.fi/nsp/engine",
+                "https://www.op.fi/*"
+            ],
             "js" : ["contentscript.js"]
         }
   ]

@@ -15,8 +15,10 @@
     <form id="form">
         <label>Spreadsheet key: <input name="key" /></label>
         <i>Copy the key paramater from the documents URL field.</i>
-        <label>Worksheet ID: <input name="worksheet_id" /></label>
-        <i>First worksheet is od6</i>
+        <label>Nordea Worksheet ID: <input name="nordea.worksheet_id" /></label>
+        <i>First worksheet is 1</i>
+        <label>OP Worksheet ID: <input name="op.worksheet_id" /></label>
+        <i>First worksheet is 1</i>
         <label>OAuth client ID: <input name="client_id" /></label>
         <i>Register your app with Google in the <a href="https://code.google.com/apis/console/">API Console</a>. Choose <em>Installed application</em>.</i>
         <label>OAuth client secret: <input name="client_secret" /></label>
@@ -28,20 +30,19 @@
 <script>
 
 !function() {
-    var prefix = "nordea";
+    var prefix = "transaction.";
     
     function restoreOptions() {
-        //localStorage[prefix . ]
         Array.prototype.slice.call( document.getElementById("form").elements ).forEach(function( val, idx ) {
-            if ( localStorage[ prefix + '.'+ val.name ] !== undefined) {
-                val.value = localStorage[ prefix + '.'+ val.name ];
+            if ( localStorage[ prefix + val.name ] !== undefined) {
+                val.value = localStorage[ prefix + val.name ];
             }
         });
     }
 
     function saveOptions() {
         Array.prototype.slice.call( document.getElementById("form").elements ).forEach(function( val, idx ) {
-            localStorage[ prefix + '.'+ val.name ] = val.value;
+            localStorage[ prefix + val.name ] = val.value;
         });
 
         var button = document.getElementById("save"),
@@ -52,11 +53,6 @@
             button.innerHTML = text_orig;
         }, 1500);
     }
-
-    // Need to establish a connection between contentscript and
-    // background to be able to push data into localStorage
-    //document.getElementById("error").innerHTML = "<p>"+ ( localStorage[ prefix + '.errors'] || "").replace(/~/, '</p><p>') + "</p>";
-
     document.getElementById("save").addEventListener("click", saveOptions, true);
     restoreOptions();
 }();

@@ -22,141 +22,259 @@
  */
 
 !function( global, document ) {
-    var settings,       // settings variable stored in background.html
-        columns,        // column titles for table
-        errors          = 0,
-        requests_total  = 0,
-        requests_done   = 0,
-        current_request = null,
-        delay           = 50,
+    var delay           = 50,
         retry_delay     = 1000,
-        info_box        = null;
+        info_box, parser, google;
 
     // Set up all libraries and initialize the script
     function init() {
+        var type, url;
+        switch ( true ) {
+            case !!document.getElementById("downloadLink"):
+                type = 'nordea';
+                url = document.getElementById("downloadLink").href;
+                break;
+            case (function() { return global.location.href === "https://www.op.fi/op?id=12402"; })()
+                    && !!document.querySelector("#PaaSisaltoPalsta ul.LinkkiListaus a.alleviivattu[tabindex='4']"):
+                type = 'op';
+                url = document.querySelector("#PaaSisaltoPalsta ul.LinkkiListaus a.alleviivattu[tabindex='4']").href;
+                break;
+            default:
+                return;
+        }
+
         chrome.extension.sendRequest({action : "signin"}, function( response ) {
             if ( response.success ) {
-                settings = response.settings;
+                var settings = response.settings;
+
+                settings.auth_header = settings.auth_header[ type ];
+                settings.url = settings.scope
+                    + settings.key
+                    + '/' + settings[ type + '_worksheet_id']
+                    + settings.url_suffix;
+                
                 info_box = new Box();
-                fetchTxt();
+                parser = new Parser( type );
+                google = new Google( settings );
+                
+                parser.setURL( url )
+                      .fetch( pushData );
+
+
             } else {
                 global.console.log('Authentication failed');
             }
         });
     }
+    
 
-    // Sniff and fetch the downloadable txt file from the page
-    function fetchTxt() {
-        var link = document.getElementById("downloadLink");
-        
-        ajax({
-            method : "GET",
-            url : link.href,
-            callback : pushData
-        });
-    }
+    var pushData = function() {
+        parser.parse();
 
-    // Parse the txt file and issue push requests for each row individually
-    function pushData( transaction_data ) {
-        if ( !transaction_data ) {
-            throw new Error("Was not able to retrieve txt file.");
-        }
+        google.setHeader( parser.getColumns() );
 
-        var tries = 0;
-        
-        // remove irrelevant lines
-        transaction_data = transaction_data.split("\n").slice(2, -1);
+        !function loop( row ) {
 
-        // store and remove column names
-        columns = transaction_data.splice(0, 2)[0].replace(/[^\w\t]/g, '').toLowerCase().split("\t");
-
-        requests_total = transaction_data.length / 2;
-
-        function nextRow() {
-            return transaction_data.splice(0,2)[0];
-        }
-
-        function parseRow( string ) {
-            return string.split("\t");
-        }
-        
-        !function loop( request ) {
-        
             global.setTimeout(function() {
-                if ( request && ( current_request = parseRow( request ) ) ) {
-                    googlePOST( createEntry( current_request ), function( response, data ) {
-                        switch ( data.target.statusText ) {
-                            case "Created":
-                                tries = 0;
-                                info_box.updateStatus( ++requests_done +'/' + requests_total );
-                                loop( nextRow() );
-                                break;
-
-                            case "Forbidden":
-                            case "Bad Request":
-                                if ( ++tries < 4 ) {
-                                    global.setTimeout(function() {
-                                        loop( current_request );
-                                    }, retry_delay );
-
-                                } else {
-                                    info_box.updateStatus( ++requests_done +'/' + requests_total );
-                                    info_box.addError( current_request );
-                                    
-                                    global.console.log('Error pushing data %o with %o',
-                                        data,
-                                        createEntry( current_request )
-                                    );
-
-                                    errors++;
-                                    tries = 0;
-                                    
-                                    loop( nextRow() );
-                                }
-                                break;
-                        }
-                    });
-                } else {
-                    info_box.updateStatus('Nordea.fi transaction export done! ' + ( requests_total - errors ) + '/' + requests_total + ' successful.');
+                if ( !row ) {
+                    info_box.updateStatus('Transaction export done! ' + ( google.requests - google.errors ) + '/' + parser.row_count + ' successful.');
+                    return;
                 }
+                
+                google.translate( row ).post(function( response, data ) {
+                    switch ( data.target.statusText ) {
+                        case "Created":
+                            info_box.updateStatus( google.requests +'/' + parser.row_count );
+                            loop( parser.readRow() );
+                            break;
+
+                        case "Forbidden":
+                        case "Bad Request":
+                                info_box.updateStatus( google.requests +'/' + parser.row_count );
+                                info_box.addError( row );
+
+                                global.console.log('Error pushing data %o with %o',
+                                    data,
+                                    row
+                                );
+                                loop( parser.readRow() );
+                            break;
+                    }
+                });
             }, delay );
 
-        }( nextRow() ); // remove every other line as it's empty
-    }
+        }( parser.readRow() );
+    };
 
-    // Make the POST request to push into Google Spreadsheets
-    function googlePOST( body, callback ) {
-        ajax({
-            method :    "POST",
-            url :       settings.url,
-            send :      body,
-            request_headers : [
-                [ 'GData-Version',  '3.0' ],
-                [ 'Content-Type',   'application/atom+xml' ],
-                [ 'Authorization',  settings.auth_header ]
-            ],
-            callback : callback
-        });
+    var Google = function( settings ) {
+        this.url        = settings.url;
+        this.auth       = settings.auth_header;
+        this.xml        = null;
+        this.tries      = 0;
+        this.requests   = 0;
+        this.errors     = 0;
+        this.header    = null;
     }
     
-    // Return a xml string formated according to Google Spreadsheets scheme
-    function createEntry( values ) {
-        var cells = "", col;
+    Google.prototype = {
+        post : function( callback ) {
+            var that = this;
+            
+            ajax({
+                method :    "POST",
+                url :       this.url,
+                send :      this.xml,
+                request_headers : [
+                    [ 'GData-Version',  '3.0' ],
+                    [ 'Content-Type',   'application/atom+xml' ],
+                    [ 'Authorization',  this.auth ]
+                ],
+                callback : function( response, data ) {
+                    switch( data.target.statusText ) {
+                        case "Created":
+                            that.tries = 0;
+                            that.requests++;
+                            callback.apply( that, toArray( arguments ) );
 
-        values.forEach(function( value, idx ) {
-            if ( col = columns[ idx ] ) {
-                cells += "<gsx:" + col + ">"
-                        + ( htmlEntities(value) || "" ).trim()
-                        + "</gsx:" + col + ">";
-            }
-        });
+                            break;
+                        case "Forbidden":
+                        case "Bad Request":
+                            
+                            if ( ++that.tries < 3 ) {
+                                global.setTimeout(function() {
+                                    that.post( that.xml, callback );
+                                }, retry_delay );
+                            } else {
+                                that.errors++;
+                                that.requests++;
+                                callback.apply( that, toArray( arguments ) );
+                            }
+                            break;
+                    }
+                }
+            });
+        },
 
-        return '<entry xmlns="http://www.w3.org/2005/Atom"'
-                + ' xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended">'
-                + cells
-                + '</entry>';
+        setHeader : function( header ) {
+            this.header = header;
+        },
+
+        translate : function( values ) {
+            var cells = "", 
+                that = this,
+                col;
+
+            values.forEach(function( value, idx ) {
+                if ( col = that.header[ idx ] ) {
+                    cells += "<gsx:" + col + ">"
+                            + ( htmlEntities(value) || "" ).trim()
+                            + "</gsx:" + col + ">";
+                }
+            });
+
+            this.xml = '<entry xmlns="http://www.w3.org/2005/Atom"'
+                    + ' xmlns:gsx="http://schemas.google.com/spreadsheets/2006/extended">'
+                    + cells
+                    + '</entry>';
+            return this;
+        }
+    }
+    
+    var Parser = function( type ) {
+        this.url        = null;
+        this.type       = null;
+        this.columns    = null;
+        this.rows       = null;
+        this.file       = null;
+        this.current    = null;
+        this.row_count  = 0;
+        this.cursor     = 0;
+
+        switch ( type ) {
+            case 'nordea':
+            case 'op':
+                this.type = type;
+                break;
+            default:
+                info_box.updateStatus("Unknown bank.");
+                break;
+        }
     }
 
+    Parser.prototype = {
+        fetch : function( callback ) {
+            var that = this;
+
+            ajax({
+                method : "GET",
+                url : this.url,
+                callback : function( file ) {
+                    if ( !( that.file = file ) ) {
+                        info_box.updateStatus("Can't retrieve file.");
+                    } else {
+                        callback();
+                    }
+                }
+            });
+        },
+
+        setURL : function( url ) {
+            this.url = url;
+            return this;
+        },
+        
+        parse : function() {
+            this[ this.type ].clean.call( this );
+            this.setColumns();
+
+            this.row_count = this.rows.length;
+            return this;
+        },
+
+        readRow : function() {
+            var row = this.rows.shift();
+            return row ? ( this.current = row.split( this[ this.type ].delimiter ) ) : null;
+        },
+
+        getColumns : function() {
+            return this.columns;
+        },
+        
+        setColumns : function() {
+            this.columns = this.columns.replace(/[^\w\t;]/g, '').toLowerCase().split( this[ this.type ].delimiter );
+        }
+    }
+
+    Parser.prototype.nordea = {
+        delimiter : '\t',
+
+        clean : function() {
+            var file = this.file.replace(/ +(?= )/g,'').split('\n').slice(2, -1),
+                i = 0;
+
+            this.columns = file.splice(0, 2)[0];
+
+            while ( file.splice( ++i, 1 ).length );
+            this.rows = file;
+        }
+    }
+
+    Parser.prototype.op = {
+        delimiter : ';',
+        clean : function() {
+            var file = this.file.replace(/ +(?= )/g,'').replace(/&amp;/g, '&').split('\n');
+                
+            this.columns = file.splice(0, 1)[0];
+            
+            this.rows = file.filter(function(val) { return val.length > 1 ? true : false; });
+            
+        }
+    }
+
+    function toArray( args ) {
+        return Array.prototype.slice.call( args );
+    }
+    
     // Sanitize text
     function htmlEntities( str ) {
         return String( str ).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -194,7 +312,7 @@
         box.id = "nordea-info-box";
         status.id = "nordea-info-status";
         errors.id = "nordea-info-errors";
-        box.appendChild( document.createTextNode("Nordea Transaction History") );
+        box.appendChild( document.createTextNode("Transaction History") );
         this.status = box.appendChild( status );
         this.errors = box.appendChild( errors );
         
@@ -209,5 +327,5 @@
     };
 
     // Initialize the script
-    document.getElementById("downloadLink") && init();
+    init();
 }( window, document );

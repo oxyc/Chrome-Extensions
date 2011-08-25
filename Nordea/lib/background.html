@@ -7,16 +7,18 @@
         <script>
             !function() {
                 // Settings variable later passed to the content script
-                var settings = {
-                        scope :         'https://spreadsheets.google.com/feeds/list/',
-                        key :           localStorage['nordea.key'],
-                        worksheet_id :  localStorage['nordea.worksheet_id'],
-                        client_id :     localStorage['nordea.client_id'],
-                        client_secret : localStorage['nordea.client_secret'],
-                        app_name :      'Nordea.fi transaction history',
-                        url_suffix :    '/private/full',
-                        url :           null,   // filled in once authenticated
-                        auth_header :   null    // filled in once authenticated
+                var prefix = "transaction.",
+                    settings = {
+                        scope               :'https://spreadsheets.google.com/feeds/list/',
+                        key                 : localStorage[ prefix +'key'],
+                        nordea_worksheet_id : localStorage[ prefix +'nordea.worksheet_id'],
+                        op_worksheet_id     : localStorage[ prefix +'op.worksheet_id'],
+                        client_id           : localStorage[ prefix +'client_id'],
+                        client_secret       : localStorage[ prefix +'client_secret'],
+                        app_name            : 'Transaction history',
+                        url_suffix          : '/private/full',
+                        url                 : null,   // filled in once authenticated
+                        auth_header         : null    // filled in once authenticated
                     },
                     
                     scripts_executed = 0;
@@ -33,7 +35,7 @@
                     switch( request.action ) {
                         case 'signin':
                             if ( !( settings.key
-                                    && settings.worksheet_id
+                                    && ( settings.nordea_worksheet_id || settings.op_worksheet_id )
                                     && settings.client_id
                                     && settings.client_secret ) ) {
                                 alert('Extension settings missing. Exiting.');
@@ -66,11 +68,20 @@
                         });
 
                         oauth.authorize(function() {
-                            settings.url = settings.scope
-                                    + settings.key
-                                    + '/' + settings.worksheet_id
-                                    + settings.url_suffix;
-                            settings.auth_header = oauth.getAuthorizationHeader( settings.url, "POST" );
+                            settings.auth_header = {
+                                nordea : settings.nordea_worksheet_id
+                                    ? oauth.getAuthorizationHeader( settings.scope
+                                        + settings.key
+                                        + '/' + settings.nordea_worksheet_id
+                                        + settings.url_suffix, "POST" )
+                                    : null,
+                                op : settings.op_worksheet_id
+                                    ? oauth.getAuthorizationHeader( settings.scope
+                                        + settings.key
+                                        + '/' + settings.op_worksheet_id
+                                        + settings.url_suffix, "POST" )
+                                    : null
+                            }
 
                             sendResponse({
                                 success : true,

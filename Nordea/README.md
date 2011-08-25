@@ -1,4 +1,6 @@
-# Nordea Transaction History
+# Transaction History
+
+### Update, now works with op.fi as well. Docs coming
 
 Exports transaction data from your Nordea.fi account to a designated Google
 Spreadsheet document.
