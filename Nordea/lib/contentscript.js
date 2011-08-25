@@ -71,17 +71,25 @@
         columns = transaction_data.splice(0, 2)[0].replace(/[^\w\t]/g, '').toLowerCase().split("\t");
 
         requests_total = transaction_data.length / 2;
+
+        function nextRow() {
+            return transaction_data.splice(0,2)[0];
+        }
+
+        function parseRow( string ) {
+            return string.split("\t");
+        }
         
         !function loop( request ) {
         
             global.setTimeout(function() {
-                if ( current_request = request ) {
-                    googlePOST( createEntry( current_request.split("\t") ), function( response, data ) {
+                if ( request && ( current_request = parseRow( request ) ) ) {
+                    googlePOST( createEntry( current_request ), function( response, data ) {
                         switch ( data.target.statusText ) {
                             case "Created":
                                 tries = 0;
                                 info_box.updateStatus( ++requests_done +'/' + requests_total );
-                                loop( transaction_data.splice(0,2)[0] );
+                                loop( nextRow() );
                                 break;
 
                             case "Forbidden":
@@ -97,13 +105,13 @@
                                     
                                     global.console.log('Error pushing data %o with %o',
                                         data,
-                                        createEntry( current_request.split("\t"))
+                                        createEntry( current_request )
                                     );
 
                                     errors++;
                                     tries = 0;
                                     
-                                    loop( transaction_data.splice(0,2)[0] );
+                                    loop( nextRow() );
                                 }
                                 break;
                         }
@@ -113,7 +121,7 @@
                 }
             }, delay );
 
-        }( transaction_data.splice(0,2)[0] ); // remove every other line as it's empty
+        }( nextRow() ); // remove every other line as it's empty
     }
 
     // Make the POST request to push into Google Spreadsheets
