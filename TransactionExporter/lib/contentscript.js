@@ -21,6 +21,7 @@
  *   retrieval.
  */
 
+
 !function( global, document ) {
     var delay           = 50,
         retry_delay     = 1000,
@@ -30,16 +31,18 @@
     function init() {
         var type, url;
         switch ( true ) {
-            case !!document.getElementById("downloadLink"):
+            case !!( url = document.getElementById("downloadLink") ):
                 type = 'nordea';
-                url = document.getElementById("downloadLink").href;
+                url = url.href;
                 break;
-            case (function() { return global.location.href === "https://www.op.fi/op?id=12402"; })()
-                    && !!document.querySelector("#PaaSisaltoPalsta ul.LinkkiListaus a.alleviivattu[tabindex='4']"):
+            case global.location.href === "https://www.op.fi/op?id=12402"
+                    && !!( url = document.querySelector("#PaaSisaltoPalsta ul.LinkkiListaus a.alleviivattu[tabindex='4']") ):
                 type = 'op';
-                url = document.querySelector("#PaaSisaltoPalsta ul.LinkkiListaus a.alleviivattu[tabindex='4']").href;
+                url = url.href 
                 break;
             default:
+                type = null;
+                url = null;
                 return;
         }
 
@@ -77,7 +80,8 @@
 
             global.setTimeout(function() {
                 if ( !row ) {
-                    info_box.updateStatus('Transaction export done! ' + ( google.requests - google.errors ) + '/' + parser.row_count + ' successful.');
+                    info_box.updateStatus('Transaction export done! ' 
+                        + ( google.requests - google.errors ) + '/' + parser.row_count + ' successful.');
                     return;
                 }
                 
@@ -117,6 +121,8 @@
     }
     
     Google.prototype = {
+
+        // Pushes data to Googles REST service
         post : function( callback ) {
             var that = this;
             
@@ -155,10 +161,12 @@
             });
         },
 
+        // Sets the header to be used when identifying column names
         setHeader : function( header ) {
             this.header = header;
         },
-
+        
+        // Translated the row into Googles specified XML scheme
         translate : function( values ) {
             var cells = "", 
                 that = this,
@@ -202,6 +210,8 @@
     }
 
     Parser.prototype = {
+
+        // Sends the GET request to fetch the data file and runs the callback
         fetch : function( callback ) {
             var that = this;
 
@@ -222,7 +232,8 @@
             this.url = url;
             return this;
         },
-        
+       
+        // Parses the already read data file and does some basic cleanup
         parse : function() {
             this[ this.type ].clean.call( this );
             this.setColumns();
@@ -231,6 +242,7 @@
             return this;
         },
 
+        // Returns the next row to be used
         readRow : function() {
             var row = this.rows.shift();
             return row ? ( this.current = row.split( this[ this.type ].delimiter ) ) : null;
@@ -241,10 +253,13 @@
         },
         
         setColumns : function() {
-            this.columns = this.columns.replace(/[^\w\t;]/g, '').toLowerCase().split( this[ this.type ].delimiter );
+            this.columns = this.columns.replace(/[^\w\t;]/g, '')
+                                       .toLowerCase()
+                                       .split( this[ this.type ].delimiter );
         }
     }
 
+    // Extend the Parser with Bank specific parsing functions
     Parser.prototype.nordea = {
         delimiter : '\t',
 
@@ -258,15 +273,17 @@
             this.rows = file;
         }
     }
-
     Parser.prototype.op = {
         delimiter : ';',
         clean : function() {
-            var file = this.file.replace(/ +(?= )/g,'').replace(/&amp;/g, '&').split('\n');
+            var file = this.file.replace(/ +(?= )/g,'')
+                                .replace(/&amp;/g, '&').split('\n');
                 
             this.columns = file.splice(0, 1)[0];
             
-            this.rows = file.filter(function(val) { return val.length > 1 ? true : false; });
+            this.rows = file.filter(
+                function(val) { return val.length > 1 ? true : false; }
+            );
             
         }
     }
@@ -277,7 +294,10 @@
     
     // Sanitize text
     function htmlEntities( str ) {
-        return String( str ).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return String( str ).replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;');
     }
 
     // Generic AJAX function
@@ -295,7 +315,9 @@
         }
         
         xhr.open( options.method, options.url, true);
-        Array.isArray( options.request_headers ) && options.request_headers.forEach(function( header ) {
+        Array.isArray( options.request_headers ) 
+            && options.request_headers.forEach(function( header ) {
+
             if ( Array.isArray( header ) && header.length === 2 ) {
                 xhr.setRequestHeader( header[0], header[1] );
             }
@@ -303,12 +325,14 @@
         xhr.send( options.send );
     }
 
+    // Information box to update the user
     var Box = function() {
         var box = document.createElement('div'),
             status = box.cloneNode( false ),
             errors = document.createElement('pre');
 
-        box.setAttribute('style', 'position:fixed;top:50px;right:0;padding:1em;display:inline-block;background:#fff;border:solid 1px #ccc; max-height:500px;max-width:500px;overflow:auto;');
+        box.setAttribute('style', 'position:fixed;top:50px;right:0;padding:1em;display:inline-block;'
+                +'background:#fff;border:solid 1px #ccc; max-height:500px;max-width:500px;overflow:auto;');
         box.id = "nordea-info-box";
         status.id = "nordea-info-status";
         errors.id = "nordea-info-errors";

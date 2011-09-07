@@ -17,7 +17,8 @@
                 "https://solo1.nordea.fi/nsp/engine",
                 "https://www.op.fi/*"
             ],
-            "js" : ["contentscript.js"]
+            "js" : ["contentscript.js"],
+            "run_at" : "document_end"
         }
   ]
 }

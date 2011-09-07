@@ -1,8 +1,8 @@
-# Transaction History
+# Transaction Exporter
 
 ### Update, now works with op.fi as well. Docs coming
 
-Exports transaction data from your Nordea.fi account to a designated Google
+Exports transaction data from your bank account to a designated Google
 Spreadsheet document.
 
 ## Setting up
@@ -50,8 +50,8 @@ Spreadsheet document.
     To calculate a total sum you just select the prices in quesiton and look in the bottom
     right corner of the page.
 
-[ODS file]: https://github.com/oxyc/Chrome-Extensions/raw/master/Nordea/Template.ods
-[crx]: https://github.com/oxyc/Chrome-Extensions/raw/master/Nordea/Nordea.crx
+[ODS file]: https://github.com/oxyc/Chrome-Extensions/raw/master/TransactionExporter/Template.ods
+[crx]: https://github.com/oxyc/Chrome-Extensions/raw/master/TransactionExporter/TransactionExporter.crx
 [Google Spreadsheet]: https://docs.google.com/spreadsheet/ccc?key=0AoZjYmMuEKWrdENWb2U5dkFVcWVtQmc1UHd1X3ZGQUE&hl=en_US#gid=0
 [API Console]: https://code.google.com/apis/console/
 

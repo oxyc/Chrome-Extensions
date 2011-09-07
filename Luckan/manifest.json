@@ -3,11 +3,11 @@
     "version": "1.0",
     "description": "Removes autocomplete=off from my Luckans login page.",
     "permissions": [
-        "https://luckan.arcada.fi/"
+        "<any_urls>"
     ],
     "content_scripts": [
         {
-            "matches": ["https://luckan.arcada.fi/"],
+            "matches": ["http://*/*", "https://*/*"],
             "js" : ["contentscript.js"],
             "run_at" : "document_start"
         }
