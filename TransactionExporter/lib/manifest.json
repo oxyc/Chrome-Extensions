@@ -6,10 +6,10 @@
     "options_page": "options.html",
     "permissions": [
         "tabs",
-        "https://spreadsheets.google.com/",
-        "https://solo1.nordea.fi/",
+        "https://spreadsheets.google.com/*",
+        "https://solo1.nordea.fi/*",
         "https://www.google.com/",
-        "https://www.op.fi/"
+        "https://www.op.fi/*"
     ],
     "content_scripts": [
         {
