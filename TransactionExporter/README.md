@@ -1,9 +1,12 @@
 # Transaction Exporter
 
-### Update, now works with op.fi as well. Docs coming
+### Update, now works with op.fi as well
 
 Exports transaction data from your bank account to a designated Google
 Spreadsheet document.
+
+## Requirements
+-   Google Chrome 13+
 
 ## Setting up
 
